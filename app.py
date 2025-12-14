@@ -20,7 +20,8 @@ st.set_page_config(
 # ===============================
 # MLFLOW CONFIG
 # ===============================
-mlflow.set_tracking_uri("file:D:/Project Machine Learning Operations/mlruns")  # Pastikan path ini sesuai dengan folder mlruns
+# Menggunakan SQLite untuk menyimpan eksperimen
+mlflow.set_tracking_uri("sqlite:///D:/Project Machine Learning Operations/mlruns/mlflow.db")  # Menggunakan SQLite sebagai database
 mlflow.set_experiment("Analisis_Pengucapan_Very_CNN")
 
 # ===============================
