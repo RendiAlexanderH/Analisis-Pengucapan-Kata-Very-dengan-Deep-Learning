@@ -5,7 +5,6 @@ import librosa.display
 import matplotlib.pyplot as plt
 import io
 import mlflow
-import mlflow.pyfunc
 from datetime import datetime
 import hashlib
 
