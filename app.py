@@ -4,8 +4,10 @@ import librosa
 import librosa.display
 import matplotlib.pyplot as plt
 import io
-import mlflow
 import hashlib
+import os
+import json
+from datetime import datetime
 
 # ===============================
 # PAGE CONFIG
@@ -17,12 +19,10 @@ st.set_page_config(
 )
 
 # ===============================
-# MLFLOW CONFIG
+# EXPERIMENT LOG CONFIG (MLflow-style)
 # ===============================
-mlflow.set_tracking_uri(
-    "sqlite:///D:/Project Machine Learning Operations/mlruns/mlflow.db"
-)
-mlflow.set_experiment("Analisis_Pengucapan_Very_CNN")
+EXPERIMENT_DIR = "experiments"
+os.makedirs(EXPERIMENT_DIR, exist_ok=True)
 
 # ===============================
 # CSS UI
@@ -31,7 +31,6 @@ st.markdown("""
 <style>
 .block-container { padding: 2.5rem; }
 h1 { color: #1f2c56; }
-.sidebar-title { font-size: 20px; font-weight: bold; }
 .card {
     background-color: white;
     padding: 20px;
@@ -55,7 +54,7 @@ def display_spectrogram(y, sr, title):
     plt.close(fig)
 
 def time_shift(y, sr):
-    return np.roll(y, np.random.randint(-sr//10, sr//10))
+    return np.roll(y, np.random.randint(-sr // 10, sr // 10))
 
 def add_noise(y):
     return y + 0.005 * np.random.randn(len(y))
@@ -66,36 +65,43 @@ def pitch_shift(y, sr):
 def get_file_hash(file_bytes):
     return hashlib.md5(file_bytes).hexdigest()
 
+def log_experiment(params, metrics):
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    data = {
+        "timestamp": timestamp,
+        "params": params,
+        "metrics": metrics
+    }
+    with open(f"{EXPERIMENT_DIR}/run_{timestamp}.json", "w") as f:
+        json.dump(data, f, indent=4)
+
 # ===============================
-# SIDEBAR (CONTROL CENTER)
+# SIDEBAR – CONTROL CENTER
 # ===============================
-st.sidebar.markdown("### 🎛 Control Panel")
+st.sidebar.markdown("## 🎛 Control Panel")
 
 menu = st.sidebar.radio(
-    "Navigasi",
-    ["🏠 Home", "🎧 Analisis Audio", "📊 MLflow Info"]
+    "Navigation",
+    ["🏠 Home", "🎧 Audio Analysis", "📊 Experiment Logs"]
 )
 
 st.sidebar.markdown("---")
 
-st.sidebar.markdown("### 🤖 Model Selection")
 model_type = st.sidebar.selectbox(
-    "Pilih Model",
+    "🤖 Model Architecture",
     ["CNN", "CRNN", "Transformer"]
 )
 
-st.sidebar.markdown("### ⚙ Hyperparameter")
 learning_rate = st.sidebar.select_slider(
-    "Learning Rate",
+    "⚙ Learning Rate",
     options=[0.0001, 0.001, 0.01],
     value=0.001
 )
 batch_size = st.sidebar.selectbox("Batch Size", [16, 32, 64], index=1)
 epoch = st.sidebar.slider("Epoch", 10, 100, 30)
 
-st.sidebar.markdown("### 🔊 Audio Augmentation")
 augmentasi = st.sidebar.selectbox(
-    "Augmentasi",
+    "🔊 Audio Augmentation",
     ["Tanpa Augmentasi", "Time Shift", "Noise Addition", "Pitch Shift"]
 )
 
@@ -106,22 +112,22 @@ if menu == "🏠 Home":
     st.title("🎙 Speech Pronunciation Analysis")
     st.markdown("""
     <div class="card">
-    <b>Aplikasi ini bertujuan untuk:</b><br><br>
-    ✅ Analisis pengucapan kata <b><i>very</i></b><br>
-    ✅ Visualisasi Mel-Spectrogram<br>
-    ✅ Simulasi inferensi model Deep Learning<br>
-    ✅ Experiment Tracking menggunakan <b>MLflow</b><br><br>
-    <i>Dirancang untuk riset, skripsi, dan demonstrasi MLOps.</i>
+    <b>Application Capabilities:</b><br><br>
+    ✅ Speech pronunciation analysis (*word: very*)<br>
+    ✅ Mel-Spectrogram visualization<br>
+    ✅ Deep Learning inference simulation<br>
+    ✅ Experiment tracking (MLflow-style, file-based)<br><br>
+    <i>Designed for academic research, thesis, and MLOps demonstration.</i>
     </div>
     """, unsafe_allow_html=True)
 
 # ===============================
-# ANALISIS AUDIO PAGE
+# AUDIO ANALYSIS PAGE
 # ===============================
-elif menu == "🎧 Analisis Audio":
-    st.title("🎧 Analisis Audio & Inferensi")
+elif menu == "🎧 Audio Analysis":
+    st.title("🎧 Audio Analysis & Inference")
 
-    uploaded_file = st.file_uploader("Upload Audio WAV", type=["wav"])
+    uploaded_file = st.file_uploader("Upload WAV Audio", type=["wav"])
 
     if uploaded_file:
         audio_bytes = uploaded_file.read()
@@ -143,42 +149,46 @@ elif menu == "🎧 Analisis Audio":
             display_spectrogram(y_aug, sr, f"After {augmentasi}")
 
         if st.button("🚀 Run Inference"):
-            with mlflow.start_run(run_name="Inference_Run"):
-                confidence = float(np.random.uniform(0.75, 0.95))
+            confidence = float(np.random.uniform(0.75, 0.95))
+            label = "Pengucapan Benar" if confidence > 0.5 else "Perlu Perbaikan"
 
-                mlflow.log_params({
-                    "model": model_type,
-                    "learning_rate": learning_rate,
-                    "batch_size": batch_size,
-                    "epoch": epoch,
-                    "augmentation": augmentasi,
-                    "dataset_hash": get_file_hash(audio_bytes)
-                })
+            params = {
+                "model": model_type,
+                "learning_rate": learning_rate,
+                "batch_size": batch_size,
+                "epoch": epoch,
+                "augmentation": augmentasi,
+                "dataset_hash": get_file_hash(audio_bytes)
+            }
 
-                mlflow.log_metrics({
-                    "confidence": confidence,
-                    "loss": 1 - confidence
-                })
+            metrics = {
+                "confidence": confidence,
+                "loss": 1 - confidence
+            }
 
-                st.success(f"Prediksi: Pengucapan Benar ({confidence*100:.2f}%)")
+            log_experiment(params, metrics)
+
+            st.success(f"Prediksi: {label} ({confidence*100:.2f}%)")
+            st.progress(confidence)
 
 # ===============================
-# MLFLOW INFO PAGE
+# EXPERIMENT LOG PAGE
 # ===============================
-elif menu == "📊 MLflow Info":
-    st.title("📊 MLflow Experiment Tracking")
-    st.markdown("""
-    <div class="card">
-    <b>Experiment Name:</b> Analisis_Pengucapan_Very_CNN<br>
-    <b>Tracking URI:</b> SQLite<br><br>
-    Jalankan perintah berikut untuk membuka MLflow UI:
-    <pre>mlflow ui</pre>
-    Lalu buka <b>http://localhost:5000</b>
-    </div>
-    """, unsafe_allow_html=True)
+elif menu == "📊 Experiment Logs":
+    st.title("📊 Experiment History")
+
+    files = sorted(os.listdir(EXPERIMENT_DIR), reverse=True)
+
+    if not files:
+        st.info("Belum ada eksperimen yang tercatat.")
+    else:
+        for f in files[:5]:
+            with open(f"{EXPERIMENT_DIR}/{f}") as file:
+                data = json.load(file)
+                st.json(data)
 
 # ===============================
 # FOOTER
 # ===============================
 st.markdown("---")
-st.caption("🚀 Built with Streamlit • MLflow • Librosa | Research & MLOps Ready")
+st.caption("🚀 Streamlit • Audio AI • MLOps-ready (MLflow-style Logging)")
