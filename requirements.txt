@@ -1,5 +1,6 @@
-streamlit==1.13.0  # Pastikan kompatibel dengan Python yang digunakan
-tensorflow==2.20.0  # Versi TensorFlow terbaru
+streamlit==1.13.0
+tensorflow==2.20.0  # Versi TensorFlow yang lebih kompatibel
+protobuf==5.28.0    # Versi protobuf yang kompatibel
 librosa==0.8.1
 matplotlib==3.5.1
 scipy==1.9.3
