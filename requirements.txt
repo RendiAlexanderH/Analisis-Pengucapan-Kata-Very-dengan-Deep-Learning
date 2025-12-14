@@ -1,7 +1,6 @@
-streamlit==1.13.0
-tensorflow==2.20.0  # Versi TensorFlow yang lebih kompatibel
-protobuf==5.28.0    # Versi protobuf yang kompatibel
+streamlit==1.14.0
+tensorflow==2.20.0  
 librosa==0.8.1
-matplotlib==3.5.1 
-scipy==1.10.0
+matplotlib==3.5.1
+scipy==1.8.0
 seaborn==0.11.2
