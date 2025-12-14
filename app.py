@@ -181,7 +181,7 @@ else:
 # INFORMASI TAMBAHAN
 
 st.markdown("---")
-with st.expander("📘 Catatan Implementasi (Untuk TA)"):
+with st.expander("📘 Catatan Implementasi "):
     st.markdown("""
 - Model CNN dilatih **secara offline** menggunakan TensorFlow  
 - Aplikasi Streamlit digunakan untuk:
