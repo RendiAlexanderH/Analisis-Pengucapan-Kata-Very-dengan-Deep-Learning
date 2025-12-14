@@ -3,5 +3,6 @@ tensorflow==2.20.0  # Versi TensorFlow yang lebih kompatibel
 protobuf==5.28.0    # Versi protobuf yang kompatibel
 librosa==0.8.1
 matplotlib==3.5.1
+pip install scipy==1.9.3 
 scipy==1.9.3
 seaborn==0.11.2
