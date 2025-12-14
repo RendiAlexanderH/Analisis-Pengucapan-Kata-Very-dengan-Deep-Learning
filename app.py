@@ -47,17 +47,21 @@ def display_spectrogram(y, sr, title):
     mel_db = librosa.power_to_db(mel, ref=np.max)
 
     fig, ax = plt.subplots(figsize=(8, 4))
-    librosa.display.specshow(
+
+    img = librosa.display.specshow(
         mel_db,
         sr=sr,
         x_axis="time",
         y_axis="mel",
         ax=ax
     )
+
     ax.set_title(title)
-    plt.colorbar(ax.images[0], ax=ax, format="%+2.0f dB")
+    fig.colorbar(img, ax=ax, format="%+2.0f dB")
+
     st.pyplot(fig)
     plt.close(fig)
+
 
 def time_shift(y, sr):
     shift = np.random.randint(-sr // 10, sr // 10)
