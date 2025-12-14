@@ -21,7 +21,7 @@ st.set_page_config(
 # ===============================
 # MLFLOW CONFIG
 # ===============================
-mlflow.set_tracking_uri("file:./mlruns")  # Pastikan path ini sesuai dengan tempat folder mlruns
+mlflow.set_tracking_uri("file:D:/Project Machine Learning Operations/mlruns")  # Pastikan path ini sesuai dengan folder mlruns
 mlflow.set_experiment("Analisis_Pengucapan_Very_CNN")
 
 # ===============================
