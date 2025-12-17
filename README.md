@@ -410,41 +410,11 @@ model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy']
 
 ---
 
-## 🔮 Future Improvements
-
-1. **Data Collection**:
-   - Tambah data untuk balance classes (target: 200+ samples per class)
-   - Variasi speaker (accent, gender, age)
-   - Noise conditions (clean, noisy, reverb)
-
-2. **Model Architecture**:
-   - Eksperimen dengan 2D CNN (treat spectrogram as image)
-   - Try LSTM/GRU untuk sequential modeling
-   - Implement attention mechanism
-   - Transfer learning dengan pre-trained audio models (YAMNet, VGGish)
-
-3. **Feature Engineering**:
-   - MFCC sebagai alternatif Mel-Spectrogram
-   - Combine multiple features (MFCC + Mel + Chroma)
-   - Dynamic time warping untuk alignment
-
-4. **Deployment**:
-   - Convert to TFLite untuk mobile deployment
-   - Build REST API dengan FastAPI
-   - Real-time prediction dari microphone
-
-5. **Evaluation**:
-   - Cross-validation untuk robust evaluation
-   - Analyze per-speaker performance
-   - Interpretability dengan Grad-CAM
-
----
-
 ## 👥 Kelompok MLOps
 
 **Kelompok MLOps**
 
-- Elilya Octaviani
-- Rendi Alexander Hutagalung
-- Izza Lutfia
-- Tobias
+- Elilya Octaviani - 122450009
+- Rendi Alexander Hutagalung - 122450057
+- Izza Lutfia - 122450090
+- Tobias - 122450091
