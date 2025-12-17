@@ -1,0 +1,6 @@
+site_name: Analisis Pengucapan Kata Very
+theme:
+  name: material
+
+nav:
+  - Home: index.md
