@@ -417,4 +417,4 @@ model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy']
 - Elilya Octaviani - 122450009
 - Rendi Alexander Hutagalung - 122450057
 - Izza Lutfia - 122450090
-- Tobias - 122450091
+- Tobias David Manogari - 122450091
