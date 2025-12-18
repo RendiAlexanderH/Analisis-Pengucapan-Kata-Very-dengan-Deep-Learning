@@ -10,7 +10,6 @@ import hashlib
 from datetime import datetime
 
 import tensorflow as tf
-import mlflow.tensorflow
 
 # ========================
 # PAGE CONFIG
@@ -24,7 +23,8 @@ EXPERIMENT_DIR = "experiments"
 MODEL_DIR = "models"
 os.makedirs(EXPERIMENT_DIR, exist_ok=True)
 os.makedirs(MODEL_DIR, exist_ok=True)
-os.makedirs("Data", exist_ok=True)
+
+MODEL_PATH = os.path.join(MODEL_DIR, "autoencoder_model")
 
 # ========================
 # BASIC STYLE
@@ -49,50 +49,54 @@ def display_spectrogram(y, sr, title):
     mel = librosa.feature.melspectrogram(y=y, sr=sr, n_mels=128)
     mel_db = librosa.power_to_db(mel, ref=np.max)
     fig, ax = plt.subplots(figsize=(8,4))
-    img = librosa.display.specshow(mel_db, sr=sr, x_axis="time", y_axis="mel", ax=ax)
+    img = librosa.display.specshow(
+        mel_db, sr=sr, x_axis="time", y_axis="mel", ax=ax
+    )
     ax.set_title(title)
     fig.colorbar(img, ax=ax, format="%+2.0f dB")
     st.pyplot(fig)
     plt.close(fig)
 
-def time_shift(y, sr): return np.roll(y, np.random.randint(-sr//10, sr//10))
-def add_noise(y): return y + 0.005 * np.random.randn(len(y))
-def pitch_shift(y, sr): return librosa.effects.pitch_shift(y, sr=sr, n_steps=2)
-def get_file_hash(file_bytes): return hashlib.md5(file_bytes).hexdigest()
+def time_shift(y, sr):
+    return np.roll(y, np.random.randint(-sr//10, sr//10))
 
-def prepare_cnn_input(y, sr, n_mels=128, duration=2.0):
+def add_noise(y):
+    return y + 0.005 * np.random.randn(len(y))
+
+def pitch_shift(y, sr):
+    return librosa.effects.pitch_shift(y, sr=sr, n_steps=2)
+
+def get_file_hash(file_bytes):
+    return hashlib.md5(file_bytes).hexdigest()
+
+def prepare_autoencoder_input(y, sr, n_mels=128, duration=2.0):
     max_len = int(sr * duration)
-    if len(y) > max_len:
-        y = y[:max_len]
-    else:
-        y = np.pad(y, (0, max_len - len(y)))
+    y = y[:max_len]
+    y = np.pad(y, (0, max_len - len(y)))
+
     mel = librosa.feature.melspectrogram(y=y, sr=sr, n_mels=n_mels)
     mel_db = librosa.power_to_db(mel, ref=np.max)
     mel_db = (mel_db - mel_db.min()) / (mel_db.max() - mel_db.min())
+
     mel_db = np.expand_dims(mel_db, axis=-1)
     mel_db = np.expand_dims(mel_db, axis=0)
     return mel_db
 
-def run_mlflow_inference(model_name, X):
-    model_path = f"{MODEL_DIR}/{model_name}"
-    if not os.path.exists(model_path):
-        raise FileNotFoundError(f"Model {model_name} not found in {MODEL_DIR}")
-    model = mlflow.tensorflow.load_model(model_path)
-    pred_probs = model.predict(X)
-    pred_class = np.argmax(pred_probs, axis=1)
-    confidence = float(np.max(pred_probs))
-    return pred_class, confidence
+def load_model():
+    if not os.path.exists(MODEL_PATH):
+        st.error("Model not found. Please train the model first.")
+        return None
+    return tf.keras.models.load_model(MODEL_PATH)
 
 # ========================
 # SIDEBAR
 # ========================
 st.sidebar.title("Control Panel")
 menu = st.sidebar.radio("Navigation", ["Home", "Audio Analysis", "Experiment Logs"])
-model_type = st.sidebar.selectbox("Model Architecture", ["CNN", "CRNN", "Transformer"])
-learning_rate = st.sidebar.selectbox("Learning Rate", [0.0001, 0.001, 0.01], index=1)
-batch_size = st.sidebar.selectbox("Batch Size", [16, 32, 64], index=1)
-epoch = st.sidebar.slider("Epoch", 10, 100, 30)
-augmentation = st.sidebar.selectbox("Audio Augmentation", ["None", "Time Shift", "Noise Addition", "Pitch Shift"])
+augmentation = st.sidebar.selectbox(
+    "Audio Augmentation",
+    ["None", "Time Shift", "Noise Addition", "Pitch Shift"]
+)
 
 # ========================
 # HOME PAGE
@@ -101,12 +105,11 @@ if menu == "Home":
     st.title("Speech Pronunciation Analysis")
     st.markdown("""
     <div class="card">
-    Analyze pronunciation of the word <b>very</b> using deep learning models.
+    <b>Autoencoder-based pronunciation analysis</b> for the word <b>very</b>.
     <ul>
-        <li>Audio visualization</li>
-        <li>Data augmentation</li>
-        <li>Inference using CNN/CRNN/Transformer</li>
-        <li>Experiment tracking with MLflow</li>
+        <li>Single-class training</li>
+        <li>Reconstruction loss as pronunciation score</li>
+        <li>Lower loss = better pronunciation</li>
     </ul>
     </div>
     """, unsafe_allow_html=True)
@@ -115,51 +118,60 @@ if menu == "Home":
 # AUDIO ANALYSIS
 # ========================
 elif menu == "Audio Analysis":
-    st.title("Audio Analysis and Inference")
+    st.title("Audio Analysis and Pronunciation Scoring")
     uploaded_file = st.file_uploader("Upload WAV file", type=["wav"])
+
     if uploaded_file:
         audio_bytes = uploaded_file.read()
-        y, sr = librosa.load(io.BytesIO(audio_bytes), sr=None, mono=True)
+        y, sr = librosa.load(io.BytesIO(audio_bytes), sr=16000, mono=True)
+
         y_aug = y
-        if augmentation == "Time Shift": y_aug = time_shift(y, sr)
-        elif augmentation == "Noise Addition": y_aug = add_noise(y)
-        elif augmentation == "Pitch Shift": y_aug = pitch_shift(y, sr)
+        if augmentation == "Time Shift":
+            y_aug = time_shift(y, sr)
+        elif augmentation == "Noise Addition":
+            y_aug = add_noise(y)
+        elif augmentation == "Pitch Shift":
+            y_aug = pitch_shift(y, sr)
 
         col1, col2 = st.columns(2)
-        with col1: display_spectrogram(y, sr, "Original Audio")
-        with col2: display_spectrogram(y_aug, sr, "Augmented Audio")
+        with col1:
+            display_spectrogram(y, sr, "Original Audio")
+        with col2:
+            display_spectrogram(y_aug, sr, "Processed Audio")
 
-        if st.button("Run Inference"):
-            X_input = prepare_cnn_input(y_aug, sr)
-            try:
-                prediction, confidence = run_mlflow_inference(f"{model_type.lower()}_model", X_input)
-            except:
-                prediction, confidence = ["No model found"], 0.0
+        if st.button("Run Pronunciation Analysis"):
+            model = load_model()
+            if model:
+                X = prepare_autoencoder_input(y_aug, sr)
+                X_hat = model.predict(X, verbose=0)
 
-            loss = 1 - confidence
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            log_data = {
-                "timestamp": timestamp,
-                "parameters": {
-                    "model": model_type,
-                    "learning_rate": learning_rate,
-                    "batch_size": batch_size,
-                    "epoch": epoch,
-                    "augmentation": augmentation,
-                    "dataset_hash": get_file_hash(audio_bytes)
-                },
-                "metrics": {
-                    "prediction": str(prediction[0]),
-                    "confidence": confidence,
-                    "loss": loss
+                loss = float(np.mean((X - X_hat) ** 2))
+                score = max(0.0, 1.0 - loss)
+
+                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                log_data = {
+                    "timestamp": timestamp,
+                    "metrics": {
+                        "reconstruction_loss": loss,
+                        "pronunciation_score": score
+                    },
+                    "file_hash": get_file_hash(audio_bytes)
                 }
-            }
-            filename = f"{EXPERIMENT_DIR}/run_{timestamp}.json"
-            with open(filename, "w") as f: json.dump(log_data, f, indent=4)
-            st.success("Inference completed")
-            st.write(f"Prediction: {prediction[0]}")
-            st.write(f"Confidence: {confidence:.2f}, Loss: {loss:.2f}")
-            st.download_button("Download Experiment Log", data=open(filename,"rb"), file_name=os.path.basename(filename), mime="application/json")
+
+                filename = f"{EXPERIMENT_DIR}/run_{timestamp}.json"
+                with open(filename, "w") as f:
+                    json.dump(log_data, f, indent=4)
+
+                st.success("Analysis completed")
+                st.metric("Reconstruction Loss", f"{loss:.6f}")
+                st.metric("Pronunciation Score", f"{score:.2f}")
+
+                st.download_button(
+                    "Download Experiment Log",
+                    data=open(filename, "rb"),
+                    file_name=os.path.basename(filename),
+                    mime="application/json"
+                )
 
 # ========================
 # EXPERIMENT LOGS
@@ -167,11 +179,12 @@ elif menu == "Audio Analysis":
 elif menu == "Experiment Logs":
     st.title("Experiment History")
     files = sorted(os.listdir(EXPERIMENT_DIR), reverse=True)
-    if not files: st.info("No experiments yet")
+    if not files:
+        st.info("No experiments yet")
     else:
         for file in files:
             with open(f"{EXPERIMENT_DIR}/{file}") as f:
                 st.json(json.load(f))
 
 st.markdown("---")
-st.caption("Speech Pronunciation Analysis with CNN/CRNN/Transformer + MLflow")
+st.caption("Autoencoder-based Speech Pronunciation Analysis")
