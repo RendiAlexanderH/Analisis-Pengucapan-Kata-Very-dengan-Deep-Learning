@@ -1,46 +1,34 @@
 name: Train Pronunciation Model
 
 on:
-  workflow_dispatch:   # manual run
   push:
-    branches: [ "main" ]
+    branches: [ main ]
+  workflow_dispatch:
 
 jobs:
   train:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v3
+    - name: Checkout repo
+      uses: actions/checkout@v4
 
     - name: Set up Python
-      uses: actions/setup-python@v4
+      uses: actions/setup-python@v5
       with:
-        python-version: "3.10"
+        python-version: '3.10'
 
     - name: Install dependencies
       run: |
-        pip install --upgrade pip
-        pip install -r requirements.txt
-        pip install gdown
+        python -m pip install --upgrade pip
+        pip install librosa numpy tensorflow mlflow gdown
 
-    # =========================
-    # DOWNLOAD DATASET (INI PENTING)
-    # =========================
-    - name: Download dataset from Google Drive
+    - name: Download audio dataset from Google Drive
       run: |
-        mkdir -p Data
-        gdown --folder https://drive.google.com/drive/folders/1uZl5fSHHPbO5_QNYIs3v1fERdbWGBJdj
+        mkdir -p Data/audio
+        gdown --folder https://drive.google.com/drive/folders/1Im4XPfa3GNfpoDOwuZb8-shFin232sZO \
+          -O Data/audio --remaining-ok
 
-    - name: Verify dataset
-      run: |
-        ls Data
-        ls Data/very_dataset
-        ls Data/very_dataset/correct | head
-
-    # =========================
-    # TRAINING
-    # =========================
     - name: Run training
       run: |
         python src/train.py
