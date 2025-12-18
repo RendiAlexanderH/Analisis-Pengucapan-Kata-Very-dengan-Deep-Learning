@@ -1,85 +1,173 @@
-# src/train.py
+# =====================================================
+# TRAINING MODEL PRONUNCIATION "VERY"
+# Dataset besar | Folder-based | MLflow
+# =====================================================
+
 import os
 import numpy as np
 import librosa
+import mlflow
+import mlflow.tensorflow
+import tensorflow as tf
+from tensorflow.keras import layers, models
 from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import StandardScaler
-from sklearn.svm import SVC
-from sklearn.metrics import classification_report, accuracy_score
 
-# ================================
+# =========================
 # CONFIG
-# ================================
-DATA_DIR = "Data"  # folder dataset WAV
-SR = 16000         # sample rate
-N_MELS = 40        # jumlah filter Mel
-TEST_SIZE = 0.2
-RANDOM_STATE = 42
+# =========================
+DATA_DIR = "Data/very_dataset"   # SESUAIKAN DENGAN ACTION
+CLASSES = ["correct", "incorrect"]
 
-# ================================
-# LOAD DATA
-# ================================
-def extract_features(file_path):
-    y, sr = librosa.load(file_path, sr=SR)
-    mel = librosa.feature.melspectrogram(y=y, sr=sr, n_mels=N_MELS)
+SAMPLE_RATE = 16000
+DURATION = 2.0
+N_MELS = 128
+BATCH_SIZE = 32
+EPOCHS = 30
+LEARNING_RATE = 0.001
+
+# =========================
+# VALIDASI DATASET
+# =========================
+print("🔍 Checking dataset...")
+
+for cls in CLASSES:
+    path = os.path.join(DATA_DIR, cls)
+    if not os.path.exists(path):
+        raise ValueError(f"Folder tidak ditemukan: {path}")
+
+    files = [f for f in os.listdir(path) if f.endswith(".wav")]
+    if len(files) == 0:
+        raise ValueError(f"Tidak ada file .wav di {path}")
+
+print("✅ Dataset OK")
+
+# =========================
+# HELPER FUNCTIONS
+# =========================
+def load_audio(path):
+    y, sr = librosa.load(path, sr=SAMPLE_RATE, mono=True)
+    max_len = int(SAMPLE_RATE * DURATION)
+
+    if len(y) > max_len:
+        y = y[:max_len]
+    else:
+        y = np.pad(y, (0, max_len - len(y)))
+
+    mel = librosa.feature.melspectrogram(
+        y=y,
+        sr=sr,
+        n_mels=N_MELS
+    )
     mel_db = librosa.power_to_db(mel, ref=np.max)
-    return np.mean(mel_db, axis=1)  # rata-rata per mel band
+    mel_db = (mel_db - mel_db.min()) / (mel_db.max() - mel_db.min())
 
-X = []
-y = []
+    return np.expand_dims(mel_db, axis=-1)
 
-for label in os.listdir(DATA_DIR):
-    label_path = os.path.join(DATA_DIR, label)
-    if os.path.isdir(label_path):
-        for file in os.listdir(label_path):
+
+def collect_filepaths():
+    paths, labels = [], []
+    for label, cls in enumerate(CLASSES):
+        folder = os.path.join(DATA_DIR, cls)
+        for file in os.listdir(folder):
             if file.endswith(".wav"):
-                file_path = os.path.join(label_path, file)
-                features = extract_features(file_path)
-                X.append(features)
-                y.append(label)
+                paths.append(os.path.join(folder, file))
+                labels.append(label)
+    return paths, labels
 
-X = np.array(X)
-y = np.array(y)
 
-# ================================
-# CEK DATA
-# ================================
-if len(X) == 0:
-    raise ValueError(f"No audio files found in {DATA_DIR}. Please check your dataset folder!")
+# =========================
+# LOAD FILE PATHS (NOT AUDIO)
+# =========================
+file_paths, labels = collect_filepaths()
 
-# ================================
-# SPLIT DATA
-# ================================
-X_train, X_test, y_train, y_test = train_test_split(
-    X, y, test_size=TEST_SIZE, random_state=RANDOM_STATE, stratify=y
+X_train, X_val, y_train, y_val = train_test_split(
+    file_paths,
+    labels,
+    test_size=0.2,
+    stratify=labels,
+    random_state=42
 )
 
-# ================================
-# SCALING
-# ================================
-scaler = StandardScaler()
-X_train = scaler.fit_transform(X_train)
-X_test = scaler.transform(X_test)
+# =========================
+# TF.DATA PIPELINE (RAM AMAN)
+# =========================
+def tf_loader(path, label):
+    audio = tf.numpy_function(
+        load_audio,
+        [path],
+        tf.float32
+    )
+    audio.set_shape((N_MELS, int(SAMPLE_RATE * DURATION / 512) + 1, 1))
+    return audio, label
 
-# ================================
-# TRAINING SVM
-# ================================
-clf = SVC(kernel="linear", probability=True, random_state=RANDOM_STATE)
-clf.fit(X_train, y_train)
 
-# ================================
-# EVALUASI
-# ================================
-y_pred = clf.predict(X_test)
-acc = accuracy_score(y_test, y_pred)
-print("Accuracy:", acc)
-print(classification_report(y_test, y_pred))
+train_ds = tf.data.Dataset.from_tensor_slices((X_train, y_train))
+train_ds = train_ds.shuffle(1000).map(tf_loader).batch(BATCH_SIZE).prefetch(tf.data.AUTOTUNE)
 
-# ================================
-# SIMPAN MODEL
-# ================================
-import joblib
-os.makedirs("models", exist_ok=True)
-joblib.dump(clf, "models/svm_model.pkl")
-joblib.dump(scaler, "models/scaler.pkl")
-print("Model dan scaler berhasil disimpan di folder 'models/'")
+val_ds = tf.data.Dataset.from_tensor_slices((X_val, y_val))
+val_ds = val_ds.map(tf_loader).batch(BATCH_SIZE).prefetch(tf.data.AUTOTUNE)
+
+# =========================
+# MODEL (CNN)
+# =========================
+def build_cnn():
+    model = models.Sequential([
+        layers.Input(shape=(N_MELS, None, 1)),
+
+        layers.Conv2D(32, (3,3), activation="relu"),
+        layers.MaxPooling2D((2,2)),
+
+        layers.Conv2D(64, (3,3), activation="relu"),
+        layers.MaxPooling2D((2,2)),
+
+        layers.Conv2D(128, (3,3), activation="relu"),
+        layers.GlobalAveragePooling2D(),
+
+        layers.Dense(64, activation="relu"),
+        layers.Dropout(0.3),
+        layers.Dense(len(CLASSES), activation="softmax")
+    ])
+
+    model.compile(
+        optimizer=tf.keras.optimizers.Adam(learning_rate=LEARNING_RATE),
+        loss="sparse_categorical_crossentropy",
+        metrics=["accuracy"]
+    )
+
+    return model
+
+
+# =========================
+# TRAINING + MLFLOW
+# =========================
+mlflow.set_experiment("Pronunciation-Very-CNN")
+
+with mlflow.start_run():
+    mlflow.log_params({
+        "sample_rate": SAMPLE_RATE,
+        "duration": DURATION,
+        "n_mels": N_MELS,
+        "batch_size": BATCH_SIZE,
+        "epochs": EPOCHS,
+        "learning_rate": LEARNING_RATE
+    })
+
+    model = build_cnn()
+    model.summary()
+
+    history = model.fit(
+        train_ds,
+        validation_data=val_ds,
+        epochs=EPOCHS
+    )
+
+    val_loss, val_acc = model.evaluate(val_ds)
+    mlflow.log_metric("val_loss", val_loss)
+    mlflow.log_metric("val_accuracy", val_acc)
+
+    mlflow.tensorflow.log_model(
+        model,
+        artifact_path="cnn_model"
+    )
+
+print("🎉 Training selesai & model tersimpan di MLflow")
