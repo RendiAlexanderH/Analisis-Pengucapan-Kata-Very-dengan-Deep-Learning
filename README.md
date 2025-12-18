@@ -6,7 +6,7 @@
 
 ## 📋 Deskripsi Proyek
 
-Proyek ini merupakan sistem klasifikasi audio berbasis deep learning untuk mendeteksi kata "very" dalam audio speech. Model ini menggunakan Convolutional Neural Network (CNN) 1D yang dilatih pada mel-spectrogram untuk membedakan antara ucapan kata "very" yang benar (label=1) dan ucapan yang tidak benar atau kata lain (label=0).
+Proyek ini merupakan sistem klasifikasi audio berbasis deep learning untuk mendeteksi kata "very" dalam audio speech. Model ini menggunakan Convolutional Neural Network (CNN) 1D yang dilatih pada mel-spectrogram untuk membedakan antara ucapan kata "very" yang benar (label 1) dan ucapan yang tidak benar atau kata lain (label 0).
 
 ### Tujuan Proyek
 - **Tujuan Utama**: Membangun model deep learning untuk klasifikasi akurasi pengucapan kata "very"
