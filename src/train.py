@@ -1,79 +1,131 @@
 import os
-import librosa
 import numpy as np
-import tensorflow as tf
+import librosa
+import mlflow
 import mlflow.tensorflow
+import tensorflow as tf
 
-# ======================
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import LabelEncoder
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import (
+    Conv2D, MaxPooling2D, Flatten, Dense, Dropout
+)
+
+# =============================
 # CONFIG
-# ======================
-DATA_DIR = "Data/audio"
-SR = 16000
-DURATION = 2.0
+# =============================
+DATA_DIR = "Data"          # folder audio
+MODEL_DIR = "models"
+SAMPLE_RATE = 22050
+DURATION = 2.0             # seconds
 N_MELS = 128
 EPOCHS = 30
 BATCH_SIZE = 16
 
-# ======================
-# LOAD DATA
-# ======================
-def load_audio():
-    X = []
-    files = [f for f in os.listdir(DATA_DIR) if f.endswith(".wav")]
+os.makedirs(MODEL_DIR, exist_ok=True)
 
-    if not files:
-        raise ValueError(f"No audio files found in {DATA_DIR}")
+# =============================
+# FEATURE EXTRACTION
+# =============================
+def extract_mel(file_path):
+    y, sr = librosa.load(file_path, sr=SAMPLE_RATE, mono=True)
 
-    for f in files:
-        path = os.path.join(DATA_DIR, f)
-        y, _ = librosa.load(path, sr=SR)
-
-        max_len = int(SR * DURATION)
+    max_len = int(SAMPLE_RATE * DURATION)
+    if len(y) > max_len:
         y = y[:max_len]
+    else:
         y = np.pad(y, (0, max_len - len(y)))
 
-        mel = librosa.feature.melspectrogram(
-            y=y, sr=SR, n_mels=N_MELS
-        )
-        mel = librosa.power_to_db(mel, ref=np.max)
-        mel = (mel - mel.min()) / (mel.max() - mel.min())
+    mel = librosa.feature.melspectrogram(
+        y=y, sr=sr, n_mels=N_MELS
+    )
+    mel_db = librosa.power_to_db(mel, ref=np.max)
 
-        X.append(mel)
+    mel_db = (mel_db - mel_db.min()) / (mel_db.max() - mel_db.min())
+    mel_db = np.expand_dims(mel_db, axis=-1)
 
-    X = np.array(X)[..., np.newaxis]
-    return X
+    return mel_db
 
-# ======================
-# TRAIN
-# ======================
+# =============================
+# LOAD DATA
+# =============================
+X = []
+y = []
+
 print("Loading audio files...")
-X = load_audio()
-print(f"Loaded {X.shape[0]} samples")
 
-model = tf.keras.Sequential([
-    tf.keras.layers.Input(shape=(N_MELS, X.shape[2], 1)),
-    tf.keras.layers.Conv2D(16, 3, activation="relu", padding="same"),
-    tf.keras.layers.MaxPooling2D(),
-    tf.keras.layers.Conv2D(8, 3, activation="relu", padding="same"),
-    tf.keras.layers.MaxPooling2D(),
-    tf.keras.layers.Conv2DTranspose(8, 3, strides=2, padding="same"),
-    tf.keras.layers.Conv2DTranspose(16, 3, strides=2, padding="same"),
-    tf.keras.layers.Conv2D(1, 3, activation="sigmoid", padding="same")
+for file in os.listdir(DATA_DIR):
+    if file.endswith(".wav"):
+        file_path = os.path.join(DATA_DIR, file)
+
+        # LABELING SEDERHANA (sesuai kondisi kamu)
+        # Semua data satu kelas → binary dummy (1)
+        label = 1
+
+        feature = extract_mel(file_path)
+        X.append(feature)
+        y.append(label)
+
+X = np.array(X)
+y = np.array(y)
+
+print(f"Loaded {len(X)} samples")
+print("Input shape:", X.shape)
+
+# =============================
+# TRAIN TEST SPLIT
+# =============================
+X_train, X_val, y_train, y_val = train_test_split(
+    X, y, test_size=0.2, random_state=42
+)
+
+# =============================
+# MODEL CNN (CLASSIFICATION)
+# =============================
+model = Sequential([
+    Conv2D(32, (3,3), activation="relu",
+           input_shape=(N_MELS, X.shape[2], 1)),
+    MaxPooling2D((2,2)),
+
+    Conv2D(64, (3,3), activation="relu"),
+    MaxPooling2D((2,2)),
+
+    Flatten(),
+    Dense(128, activation="relu"),
+    Dropout(0.3),
+    Dense(1, activation="sigmoid")
 ])
 
 model.compile(
     optimizer="adam",
-    loss="mse"
+    loss="binary_crossentropy",
+    metrics=["accuracy"]
 )
 
+model.summary()
+
+# =============================
+# MLFLOW AUTOLOG
+# =============================
 mlflow.tensorflow.autolog()
 
-model.fit(
-    X, X,
+# =============================
+# TRAIN
+# =============================
+history = model.fit(
+    X_train, y_train,
+    validation_data=(X_val, y_val),
     epochs=EPOCHS,
     batch_size=BATCH_SIZE
 )
 
-mlflow.tensorflow.log_model(model, "autoencoder_model")
+# =============================
+# SAVE MODEL (MLFLOW FORMAT)
+# =============================
+mlflow.tensorflow.save_model(
+    model,
+    path=os.path.join(MODEL_DIR, "cnn_model")
+)
 
-print("Training completed successfully")
+print("Training completed & model saved")
