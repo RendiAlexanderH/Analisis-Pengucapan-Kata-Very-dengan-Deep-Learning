@@ -2,9 +2,9 @@ name: Python CI - MLOps End-to-End
 
 on:
   push:
-    branches: [main]
+    branches: ["main"]
   pull_request:
-    branches: [main]
+    branches: ["main"]
 
 jobs:
   build-test:
@@ -12,10 +12,10 @@ jobs:
 
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
 
     - name: Set up Python
-      uses: actions/setup-python@v4
+      uses: actions/setup-python@v5
       with:
         python-version: "3.10"
 
@@ -24,6 +24,11 @@ jobs:
         python -m pip install --upgrade pip
         pip install -r requirements.txt
         pip install mlflow scikit-learn pandas librosa matplotlib streamlit
+
+    - name: Run syntax check
+      run: |
+        python -m py_compile src/app.py
+        python -m py_compile src/train_mlflow.py
 
     - name: Run MLflow Training
       run: |
@@ -34,8 +39,8 @@ jobs:
       run: |
         echo "Testing Streamlit app inference..."
         streamlit run src/app.py --server.headless true &
-        sleep 10  # biar server sempat start
-        pkill -f "streamlit"  # stop server
+        sleep 10
+        pkill -f "streamlit"
 
     - name: List experiment logs
       run: |
