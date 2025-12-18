@@ -9,7 +9,6 @@ import json
 import hashlib
 from datetime import datetime
 
-# Pilihan framework deep learning
 import tensorflow as tf
 import mlflow.tensorflow
 
@@ -19,12 +18,13 @@ import mlflow.tensorflow
 st.set_page_config(page_title="Speech Pronunciation Analysis", layout="wide")
 
 # ========================
-# EXPERIMENT DIR
+# DIRS
 # ========================
 EXPERIMENT_DIR = "experiments"
 MODEL_DIR = "models"
 os.makedirs(EXPERIMENT_DIR, exist_ok=True)
 os.makedirs(MODEL_DIR, exist_ok=True)
+os.makedirs("Data", exist_ok=True)
 
 # ========================
 # BASIC STYLE
@@ -75,17 +75,19 @@ def prepare_cnn_input(y, sr, n_mels=128, duration=2.0):
 
 def run_mlflow_inference(model_name, X):
     model_path = f"{MODEL_DIR}/{model_name}"
+    if not os.path.exists(model_path):
+        raise FileNotFoundError(f"Model {model_name} not found in {MODEL_DIR}")
     model = mlflow.tensorflow.load_model(model_path)
     pred_probs = model.predict(X)
     pred_class = np.argmax(pred_probs, axis=1)
-    return pred_class
+    confidence = float(np.max(pred_probs))
+    return pred_class, confidence
 
 # ========================
-# SIDEBAR CONTROL PANEL
+# SIDEBAR
 # ========================
 st.sidebar.title("Control Panel")
 menu = st.sidebar.radio("Navigation", ["Home", "Audio Analysis", "Experiment Logs"])
-
 model_type = st.sidebar.selectbox("Model Architecture", ["CNN", "CRNN", "Transformer"])
 learning_rate = st.sidebar.selectbox("Learning Rate", [0.0001, 0.001, 0.01], index=1)
 batch_size = st.sidebar.selectbox("Batch Size", [16, 32, 64], index=1)
@@ -110,7 +112,7 @@ if menu == "Home":
     """, unsafe_allow_html=True)
 
 # ========================
-# AUDIO ANALYSIS PAGE
+# AUDIO ANALYSIS
 # ========================
 elif menu == "Audio Analysis":
     st.title("Audio Analysis and Inference")
@@ -130,11 +132,9 @@ elif menu == "Audio Analysis":
         if st.button("Run Inference"):
             X_input = prepare_cnn_input(y_aug, sr)
             try:
-                prediction = run_mlflow_inference(f"{model_type.lower()}_model", X_input)
-                confidence = float(np.max(prediction))  # placeholder
+                prediction, confidence = run_mlflow_inference(f"{model_type.lower()}_model", X_input)
             except:
-                prediction = ["No model found"]
-                confidence = 0.0
+                prediction, confidence = ["No model found"], 0.0
 
             loss = 1 - confidence
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
