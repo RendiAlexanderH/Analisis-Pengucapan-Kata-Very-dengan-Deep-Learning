@@ -57,7 +57,7 @@ jobs:
 
     # 8️⃣ Upload experiment logs as artifact
     - name: Upload experiment logs
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: experiment-logs
         path: experiments/
