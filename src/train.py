@@ -8,25 +8,25 @@ import tensorflow as tf
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder
 from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import (
-    Conv2D, MaxPooling2D, Flatten, Dense, Dropout
-)
+from tensorflow.keras.layers import Conv2D, MaxPooling2D, Flatten, Dense, Dropout
 
 # =============================
-# CONFIG
+# KONFIGURASI
 # =============================
-DATA_DIR = "Data"          # folder audio
+DATA_DIR = "Data"
 MODEL_DIR = "models"
 SAMPLE_RATE = 22050
-DURATION = 2.0             # seconds
+DURATION = 2.0
 N_MELS = 128
 EPOCHS = 30
 BATCH_SIZE = 16
 
 os.makedirs(MODEL_DIR, exist_ok=True)
 
+mlflow.set_experiment("Analisis_Pengucapan_Very")
+
 # =============================
-# FEATURE EXTRACTION
+# EKSTRAKSI FITUR
 # =============================
 def extract_mel(file_path):
     y, sr = librosa.load(file_path, sr=SAMPLE_RATE, mono=True)
@@ -41,55 +41,56 @@ def extract_mel(file_path):
         y=y, sr=sr, n_mels=N_MELS
     )
     mel_db = librosa.power_to_db(mel, ref=np.max)
+    mel_db = (mel_db - mel_db.min()) / (mel_db.max() - mel_db.min() + 1e-6)
 
-    mel_db = (mel_db - mel_db.min()) / (mel_db.max() - mel_db.min())
-    mel_db = np.expand_dims(mel_db, axis=-1)
-
-    return mel_db
+    return np.expand_dims(mel_db, axis=-1)
 
 # =============================
 # LOAD DATA
 # =============================
-X = []
-y = []
+X, y = [], []
 
 print("Loading audio files...")
 
-for file in os.listdir(DATA_DIR):
-    if file.endswith(".wav"):
-        file_path = os.path.join(DATA_DIR, file)
+for label_name in os.listdir(DATA_DIR):
+    label_path = os.path.join(DATA_DIR, label_name)
+    if not os.path.isdir(label_path):
+        continue
 
-        # LABELING SEDERHANA (sesuai kondisi kamu)
-        # Semua data satu kelas → binary dummy (1)
-        label = 1
-
-        feature = extract_mel(file_path)
-        X.append(feature)
-        y.append(label)
+    for file in os.listdir(label_path):
+        if file.endswith(".wav"):
+            file_path = os.path.join(label_path, file)
+            feature = extract_mel(file_path)
+            X.append(feature)
+            y.append(label_name)
 
 X = np.array(X)
 y = np.array(y)
 
-print(f"Loaded {len(X)} samples")
-print("Input shape:", X.shape)
+# Encode label
+encoder = LabelEncoder()
+y = encoder.fit_transform(y)
+
+print(f"Total data: {len(X)}")
+print("Shape X:", X.shape)
 
 # =============================
-# TRAIN TEST SPLIT
+# SPLIT DATA
 # =============================
 X_train, X_val, y_train, y_val = train_test_split(
-    X, y, test_size=0.2, random_state=42
+    X, y, test_size=0.2, random_state=42, stratify=y
 )
 
 # =============================
-# MODEL CNN (CLASSIFICATION)
+# MODEL CNN
 # =============================
 model = Sequential([
     Conv2D(32, (3,3), activation="relu",
            input_shape=(N_MELS, X.shape[2], 1)),
-    MaxPooling2D((2,2)),
+    MaxPooling2D(),
 
     Conv2D(64, (3,3), activation="relu"),
-    MaxPooling2D((2,2)),
+    MaxPooling2D(),
 
     Flatten(),
     Dense(128, activation="relu"),
@@ -106,26 +107,18 @@ model.compile(
 model.summary()
 
 # =============================
-# MLFLOW AUTOLOG
+# TRAINING + MLFLOW
 # =============================
 mlflow.tensorflow.autolog()
 
-# =============================
-# TRAIN
-# =============================
-history = model.fit(
-    X_train, y_train,
-    validation_data=(X_val, y_val),
-    epochs=EPOCHS,
-    batch_size=BATCH_SIZE
-)
+with mlflow.start_run():
+    history = model.fit(
+        X_train, y_train,
+        validation_data=(X_val, y_val),
+        epochs=EPOCHS,
+        batch_size=BATCH_SIZE
+    )
 
-# =============================
-# SAVE MODEL (MLFLOW FORMAT)
-# =============================
-mlflow.tensorflow.save_model(
-    model,
-    path=os.path.join(MODEL_DIR, "cnn_model")
-)
+    model.save(os.path.join(MODEL_DIR, "model_very.keras"))
 
-print("Training completed & model saved")
+print("Training selesai, model tersimpan.")
