@@ -30,7 +30,7 @@ jobs:
     - name: Download dataset from Google Drive
       run: |
         mkdir -p Data
-        gdown --folder https://drive.google.com/drive/folders/ID_FOLDER_KAMU -O Data
+        gdown --folder https://drive.google.com/drive/folders/1uZl5fSHHPbO5_QNYIs3v1fERdbWGBJdj
 
     - name: Verify dataset
       run: |
