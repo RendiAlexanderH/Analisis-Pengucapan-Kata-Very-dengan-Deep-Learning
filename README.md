@@ -38,8 +38,8 @@ Dataset Deep Learning/
 - **Augmentasi**: 2x (raw + augmented) = 220 samples total
 - **Train-Test Split**: 80:20
 - **Label Distribution**: 
-  - Label 0 (incorrect/other words): ~73 samples
-  - Label 1 (correct "very"): ~37 samples
+  - Label 0 (salah): 85 samples
+  - Label 1 (benar): 50 samples
 - **Format**: WAV files dengan variable sample rate
 
 ---
