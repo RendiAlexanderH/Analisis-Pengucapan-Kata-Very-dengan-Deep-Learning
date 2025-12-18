@@ -5,10 +5,13 @@ import librosa.display
 import matplotlib.pyplot as plt
 import io
 import os
-import mlflow
-import mlflow.sklearn
+import json
 import hashlib
 from datetime import datetime
+
+# Pilihan framework deep learning
+import tensorflow as tf
+import mlflow.tensorflow
 
 # ========================
 # PAGE CONFIG
@@ -19,8 +22,9 @@ st.set_page_config(page_title="Speech Pronunciation Analysis", layout="wide")
 # EXPERIMENT DIR
 # ========================
 EXPERIMENT_DIR = "experiments"
+MODEL_DIR = "models"
 os.makedirs(EXPERIMENT_DIR, exist_ok=True)
-os.makedirs("models", exist_ok=True)
+os.makedirs(MODEL_DIR, exist_ok=True)
 
 # ========================
 # BASIC STYLE
@@ -44,7 +48,7 @@ h1 { color: #1f2c56; }
 def display_spectrogram(y, sr, title):
     mel = librosa.feature.melspectrogram(y=y, sr=sr, n_mels=128)
     mel_db = librosa.power_to_db(mel, ref=np.max)
-    fig, ax = plt.subplots(figsize=(8, 4))
+    fig, ax = plt.subplots(figsize=(8,4))
     img = librosa.display.specshow(mel_db, sr=sr, x_axis="time", y_axis="mel", ax=ax)
     ax.set_title(title)
     fig.colorbar(img, ax=ax, format="%+2.0f dB")
@@ -56,19 +60,33 @@ def add_noise(y): return y + 0.005 * np.random.randn(len(y))
 def pitch_shift(y, sr): return librosa.effects.pitch_shift(y, sr=sr, n_steps=2)
 def get_file_hash(file_bytes): return hashlib.md5(file_bytes).hexdigest()
 
+def prepare_cnn_input(y, sr, n_mels=128, duration=2.0):
+    max_len = int(sr * duration)
+    if len(y) > max_len:
+        y = y[:max_len]
+    else:
+        y = np.pad(y, (0, max_len - len(y)))
+    mel = librosa.feature.melspectrogram(y=y, sr=sr, n_mels=n_mels)
+    mel_db = librosa.power_to_db(mel, ref=np.max)
+    mel_db = (mel_db - mel_db.min()) / (mel_db.max() - mel_db.min())
+    mel_db = np.expand_dims(mel_db, axis=-1)
+    mel_db = np.expand_dims(mel_db, axis=0)
+    return mel_db
+
 def run_mlflow_inference(model_name, X):
-    """Load trained model and predict"""
-    model_path = f"models/{model_name}"
-    model = mlflow.sklearn.load_model(model_path)
-    pred = model.predict(X)
-    return pred
+    model_path = f"{MODEL_DIR}/{model_name}"
+    model = mlflow.tensorflow.load_model(model_path)
+    pred_probs = model.predict(X)
+    pred_class = np.argmax(pred_probs, axis=1)
+    return pred_class
 
 # ========================
 # SIDEBAR CONTROL PANEL
 # ========================
 st.sidebar.title("Control Panel")
 menu = st.sidebar.radio("Navigation", ["Home", "Audio Analysis", "Experiment Logs"])
-model_type = st.sidebar.selectbox("Model Architecture", ["RandomForest", "CNN", "CRNN"])
+
+model_type = st.sidebar.selectbox("Model Architecture", ["CNN", "CRNN", "Transformer"])
 learning_rate = st.sidebar.selectbox("Learning Rate", [0.0001, 0.001, 0.01], index=1)
 batch_size = st.sidebar.selectbox("Batch Size", [16, 32, 64], index=1)
 epoch = st.sidebar.slider("Epoch", 10, 100, 30)
@@ -81,12 +99,12 @@ if menu == "Home":
     st.title("Speech Pronunciation Analysis")
     st.markdown("""
     <div class="card">
-    Analyze pronunciation of the word <b>very</b> with MLflow logging.
+    Analyze pronunciation of the word <b>very</b> using deep learning models.
     <ul>
         <li>Audio visualization</li>
         <li>Data augmentation</li>
-        <li>Inference using trained model</li>
-        <li>Experiment tracking</li>
+        <li>Inference using CNN/CRNN/Transformer</li>
+        <li>Experiment tracking with MLflow</li>
     </ul>
     </div>
     """, unsafe_allow_html=True)
@@ -106,14 +124,14 @@ elif menu == "Audio Analysis":
         elif augmentation == "Pitch Shift": y_aug = pitch_shift(y, sr)
 
         col1, col2 = st.columns(2)
-        display_spectrogram(y, sr, "Original Audio")
-        display_spectrogram(y_aug, sr, "Augmented Audio")
+        with col1: display_spectrogram(y, sr, "Original Audio")
+        with col2: display_spectrogram(y_aug, sr, "Augmented Audio")
 
         if st.button("Run Inference"):
-            X_dummy = np.mean(librosa.feature.mfcc(y=y_aug, sr=sr, n_mfcc=13), axis=1).reshape(1, -1)
+            X_input = prepare_cnn_input(y_aug, sr)
             try:
-                prediction = run_mlflow_inference("random_forest_model", X_dummy)
-                confidence = float(np.random.uniform(0.8, 0.95))
+                prediction = run_mlflow_inference(f"{model_type.lower()}_model", X_input)
+                confidence = float(np.max(prediction))  # placeholder
             except:
                 prediction = ["No model found"]
                 confidence = 0.0
@@ -123,13 +141,15 @@ elif menu == "Audio Analysis":
             log_data = {
                 "timestamp": timestamp,
                 "parameters": {
-                    "model": model_type, "learning_rate": learning_rate,
-                    "batch_size": batch_size, "epoch": epoch,
+                    "model": model_type,
+                    "learning_rate": learning_rate,
+                    "batch_size": batch_size,
+                    "epoch": epoch,
                     "augmentation": augmentation,
                     "dataset_hash": get_file_hash(audio_bytes)
                 },
                 "metrics": {
-                    "prediction": prediction[0],
+                    "prediction": str(prediction[0]),
                     "confidence": confidence,
                     "loss": loss
                 }
@@ -150,7 +170,8 @@ elif menu == "Experiment Logs":
     if not files: st.info("No experiments yet")
     else:
         for file in files:
-            with open(f"{EXPERIMENT_DIR}/{file}") as f: st.json(json.load(f))
+            with open(f"{EXPERIMENT_DIR}/{file}") as f:
+                st.json(json.load(f))
 
 st.markdown("---")
-st.caption("Speech Pronunciation Analysis with MLflow")
+st.caption("Speech Pronunciation Analysis with CNN/CRNN/Transformer + MLflow")
