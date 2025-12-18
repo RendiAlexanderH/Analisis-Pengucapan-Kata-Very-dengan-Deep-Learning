@@ -33,7 +33,6 @@ jobs:
       run: |
         python -m py_compile app.py
         python -m py_compile src/train.py
-        python -m py_compile preprocess.py
         python -m py_compile src/preprocess.py
 
     # 5️⃣ Run MLflow training
@@ -46,8 +45,8 @@ jobs:
     - name: Test Streamlit App
       run: |
         echo "Testing Streamlit app..."
-        streamlit run app.py --server.headless true &
-        sleep 10
+        streamlit run app.py --server.headless true --server.port 8501 &
+        sleep 15
         pkill -f "streamlit"
 
     # 7️⃣ List experiment logs
