@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Virtual environment
+venv/
+.env
+
+# MLflow
+mlruns/
+mlartifacts/
+
+# Models & logs
+models/*.h5
+models/*.pt
+models/*.pkl
+logs/
+
+# OS
+.DS_Store
+Thumbs.db
