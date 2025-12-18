@@ -1,0 +1,46 @@
+name: Train Pronunciation Model
+
+on:
+  workflow_dispatch:   # manual run
+  push:
+    branches: [ "main" ]
+
+jobs:
+  train:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: "3.10"
+
+    - name: Install dependencies
+      run: |
+        pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install gdown
+
+    # =========================
+    # DOWNLOAD DATASET (INI PENTING)
+    # =========================
+    - name: Download dataset from Google Drive
+      run: |
+        mkdir -p Data
+        gdown --folder https://drive.google.com/drive/folders/ID_FOLDER_KAMU -O Data
+
+    - name: Verify dataset
+      run: |
+        ls Data
+        ls Data/very_dataset
+        ls Data/very_dataset/correct | head
+
+    # =========================
+    # TRAINING
+    # =========================
+    - name: Run training
+      run: |
+        python src/train.py
