@@ -1,5 +1,7 @@
 # Speech Recognition Deep Learning Project - Klasifikasi Kata "Very"
 
+## ML Canvas
+
 ![ML Canvas](https://github.com/RendiAlexanderH/Analisis-Pengucapan-Kata-Very-dengan-Deep-Learning/blob/main/Salinan%20dari%20ML%20CANVAS_10.png)
 
 ## 📋 Deskripsi Proyek
