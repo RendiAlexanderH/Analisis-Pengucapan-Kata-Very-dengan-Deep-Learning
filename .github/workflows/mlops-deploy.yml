@@ -1,0 +1,57 @@
+name: MLOps CI/CD - Streamlit & MLflow
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+
+jobs:
+  mlops:
+    runs-on: ubuntu-latest
+
+    steps:
+    # 1️⃣ Checkout repo
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    # 2️⃣ Set up Python
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.10"
+
+    # 3️⃣ Install dependencies
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install mlflow scikit-learn pandas librosa matplotlib streamlit
+
+    # 4️⃣ Syntax check
+    - name: Run syntax check
+      run: |
+        python -m py_compile app.py
+        python -m py_compile src/train.py
+        python -m py_compile preprocess.py
+        python -m py_compile "srec preprocess.py"
+
+    # 5️⃣ Run MLflow training
+    - name: Run MLflow Training
+      run: |
+        echo "Running MLflow training..."
+        python src/train.py
+
+    # 6️⃣ Run Streamlit App Test (headless)
+    - name: Test Streamlit App
+      run: |
+        echo "Testing Streamlit app..."
+        streamlit run app.py --server.headless true &
+        sleep 10
+        pkill -f "streamlit"
+
+    # 7️⃣ List experiment logs
+    - name: List experiment logs
+      run: |
+        echo "Checking experiments folder..."
+        ls experiments/
