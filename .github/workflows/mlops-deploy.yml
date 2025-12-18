@@ -55,7 +55,7 @@ jobs:
         echo "Checking experiments folder..."
         ls experiments/
 
-    # 8️⃣ Optional: Upload experiment logs as artifacts
+    # 8️⃣ Upload experiment logs as artifact
     - name: Upload experiment logs
       uses: actions/upload-artifact@v3
       with:
