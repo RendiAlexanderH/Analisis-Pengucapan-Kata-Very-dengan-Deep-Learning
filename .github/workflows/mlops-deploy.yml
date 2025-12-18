@@ -34,7 +34,7 @@ jobs:
         python -m py_compile app.py
         python -m py_compile src/train.py
         python -m py_compile preprocess.py
-        python -m py_compile "srec preprocess.py"
+        python -m py_compile src/preprocess.py
 
     # 5️⃣ Run MLflow training
     - name: Run MLflow Training
