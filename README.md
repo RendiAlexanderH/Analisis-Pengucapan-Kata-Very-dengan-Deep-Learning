@@ -257,11 +257,11 @@ Class 1           0.69      0.65       0.67
 ```
 
 ### Analisis
-- ✅ Model berhasil mencapai target akurasi >75%
-- ✅ Dropout 0.2 memberikan hasil terbaik (lebih tinggi 2.27%)
-- ⚠️ Class imbalance: Class 0 (27 samples) > Class 1 (17 samples)
-- ✅ Tidak ada overfitting signifikan
-- ⚠️ Precision untuk Class 1 masih bisa ditingkatkan
+- Model berhasil mencapai target akurasi >75%
+- Dropout 0.2 memberikan hasil terbaik (lebih tinggi 2.27%)
+- Class imbalance: Class 0 (27 samples) > Class 1 (17 samples)
+- Tidak ada overfitting signifikan
+- Precision untuk Class 1 masih bisa ditingkatkan
 
 ---
 
