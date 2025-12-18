@@ -411,8 +411,6 @@ model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy']
 
 ## 👥 Kelompok MLOps
 
-**Kelompok MLOps**
-
 - Elilya Octaviani - 122450009
 - Rendi Alexander Hutagalung - 122450057
 - Izza Lutfia - 122450090
