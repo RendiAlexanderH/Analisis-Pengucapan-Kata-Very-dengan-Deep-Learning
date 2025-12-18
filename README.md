@@ -7,7 +7,6 @@ Proyek ini merupakan sistem klasifikasi audio berbasis deep learning untuk mende
 ### Tujuan Proyek
 - **Tujuan Utama**: Membangun model deep learning untuk klasifikasi akurasi pengucapan kata "very"
 - **Aplikasi**: Sistem pembelajaran bahasa, speech therapy, quality control untuk speech recognition
-- **Akurasi Target**: Mencapai akurasi >75% pada data test
 
 ---
 
